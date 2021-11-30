@@ -1,0 +1,265 @@
+---
+title: "CovidMisinfo"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(data.table)
+library(plyr)
+```
+
+
+```{r}
+R_DATA_GENERAL <<- "/Users/luerlyu/Downloads/"
+AVaxxerBefore <- read.csv(paste(R_DATA_GENERAL,"AVaxxer-before.csv",sep=""), quote="\"", header=T, comment.char="", sep=',')
+AltRightBefore <- read.csv(paste(R_DATA_GENERAL,"Alt-right-before.csv",sep=""), quote="\"", header=T, comment.char="", sep=',')
+AVaxxerAfter <- read.csv(paste(R_DATA_GENERAL,"AVaxxer-after.csv",sep=""), quote="\"", header=T, comment.char="", sep=',')
+AltRightAfter <- read.csv(paste(R_DATA_GENERAL,"Alt-right-after.csv",sep=""), quote="\"", header=T, comment.char="", sep=',')
+```
+
+```{r}
+library(tidyverse)
+
+AltRightAfter %>%
+    mutate(sen = ifelse(str_detect(Message, "podcast"),
+                          Message,
+                          "")) %>%
+    #select(sen)%>%
+    filter(sen!="")
+```
+
+
+```{r}
+
+AltRightAfter %>%
+    mutate(sen = ifelse(str_detect(Message, "podcast"),
+                          Message,
+                          "")) %>%
+    #select(sen)%>%
+    filter(sen!="")%>%
+    mutate(conservativeDaily = str_detect(Link, "ConservativeDaily")) %>%
+    filter(conservativeDaily==T) %>%
+    group_by(conservativeDaily)%>%
+    summarise(Count= sum(conservativeDaily))
+    #mutate(sen = factor(sen, levels = unique(sen)))
+```
+```{r}
+#418 out of 9328 entries are from conservative daily
+AltRightAfter %>%
+    mutate(sen = ifelse(str_detect(User.Name, "ConservativeDaily"),
+                          User.Name,
+                          "")) %>%
+    #select(sen)%>%
+    filter(sen!="")
+```
+
+```{r}
+AltRightBefore %>%
+    mutate(sen = ifelse(str_detect(User.Name, "ConservativeDaily"),
+                          User.Name,
+                          "")) %>%
+    #select(sen)%>%
+    filter(sen!="")
+```
+
+```{r}
+AltRightBefore %>%
+    mutate(sen = ifelse(str_detect(Message, "podcast"),
+                          Message,
+                          "")) %>%
+    #select(sen)%>%
+    filter(sen!="")
+```
+
+## Word counts for each document
+```{r}
+library(tidytext)
+library(dplyr)
+library(stringr)
+
+AVaxxerBefore %>%
+    select(Message)%>%
+    mutate(line = dplyr::row_number()) %>%
+    unnest_tokens(word, Message) %>% #tokenize words
+    anti_join(stop_words)%>%
+    count(word, sort = TRUE)
+```
+
+```{r}
+R_DATA_GENERAL <<- "/Users/luerlyu/Downloads/"
+AVaxxerBefore_Clean <- read.csv(paste(R_DATA_GENERAL,"anti_before_cleaned.csv",sep=""), quote="\"", header=T, comment.char="", sep=',')
+AltRightBefore_Clean <- read.csv(paste(R_DATA_GENERAL,"alt_before_cleaned.csv",sep=""), quote="\"", header=T, comment.char="", sep=',')
+AVaxxerAfter_Clean <- read.csv(paste(R_DATA_GENERAL,"anti_after_cleaned.csv",sep=""), quote="\"", header=T, comment.char="", sep=',')
+AltRightAfter_Clean <- read.csv(paste(R_DATA_GENERAL,"alt_after_cleaned.csv",sep=""), quote="\"", header=T, comment.char="", sep=',')
+```
+
+```{r}
+library(tidytext)
+library(dplyr)
+library(stringr)
+
+AVaxxerBefore_Clean <- AVaxxerBefore_Clean %>%
+    select(Message)%>%
+    mutate(line = dplyr::row_number()) %>%
+    unnest_tokens(word, Message) %>% #tokenize words
+    anti_join(stop_words)%>%
+    filter(word!='vaccin')
+AVaxxerBefore_Clean %>%
+    count(word, sort = TRUE)
+```
+
+
+```{r}
+AVaxxerAfter_Clean <- AVaxxerAfter_Clean%>%
+    select(Message)%>%
+    mutate(line = dplyr::row_number()) %>%
+    unnest_tokens(word, Message) %>% #tokenize words
+    anti_join(stop_words)%>%
+    filter(word!='vaccin')
+AVaxxerAfter_Clean %>%
+    count(word, sort = TRUE)
+```
+
+```{r}
+AltRightBefore_Clean <- AltRightBefore_Clean%>%
+    select(Message)%>%
+    mutate(line = dplyr::row_number()) %>%
+    unnest_tokens(word, Message) %>% #tokenize words
+    anti_join(stop_words)%>%
+    filter(word!='vaccin')
+AltRightBefore_Clean%>%
+    count(word, sort = TRUE)
+```
+
+```{r}
+AltRightAfter_Clean <- AltRightAfter_Clean%>%
+    select(Message)%>%
+    mutate(line = dplyr::row_number()) %>%
+    unnest_tokens(word, Message) %>% #tokenize words
+    anti_join(stop_words)%>%
+    filter(word!='vaccin')
+AltRightAfter_Clean%>%
+    count(word, sort = TRUE)
+```
+
+```{r}
+AltRightAfter_Clean <- AltRightAfter_Clean%>%
+  mutate(category = "AltRightAfter")%>%
+  select(c(word,category))
+
+AltRightBefore_Clean <- AltRightBefore_Clean%>%
+  mutate(category = "AltRightBefore")%>%
+  select(c(word,category)) 
+
+AVaxxerBefore_Clean <- AVaxxerBefore_Clean%>%
+  mutate(category = "AVaxxerBefore")%>%
+  select(c(word,category))
+
+AVaxxerAfter_Clean <- AVaxxerAfter_Clean%>%
+  mutate(category = "AVaxxerAfter")%>%
+  select(c(word,category))
+
+```
+
+```{r}
+data <- bind_rows(AltRightAfter_Clean,AltRightBefore_Clean,AVaxxerBefore_Clean,AVaxxerAfter_Clean)
+data
+```
+## using STM to topic modeling
+
+```{r}
+library(stm)
+
+data_dfm <- data %>%
+    count(category, word, sort = TRUE) %>%
+    cast_dfm(category, word, n)
+
+data_sparse <- data %>%
+    count(category, word, sort = TRUE) %>%
+    cast_sparse(category, word, n)
+
+```
+
+```{r}
+topic_model <- stm(data_dfm, K = 6, 
+                   verbose = FALSE, init.type = "Spectral")
+```
+
+```{r}
+library(ggplot2)
+td_beta <- tidy(topic_model)
+
+td_beta %>%
+    group_by(topic) %>%
+    top_n(10, beta) %>%
+    ungroup() %>%
+    mutate(topic = paste0("Topic ", topic),
+           term = reorder_within(term, beta, topic)) %>%
+    ggplot(aes(term, beta, fill = as.factor(topic))) +
+    geom_col(alpha = 0.8, show.legend = FALSE) +
+    facet_wrap(~ topic, scales = "free_y") +
+    coord_flip() +
+    scale_x_reordered() +
+    labs(x = NULL, y = expression(beta),
+         title = "Highest word probabilities for each topic",
+         subtitle = "Different words are associated with different topics")
+```
+
+
+```{r}
+td_gamma <- tidy(topic_model, matrix = "gamma",                    
+                 document_names = rownames(data_dfm))
+
+ggplot(td_gamma, aes(gamma, fill = as.factor(topic))) +
+  geom_histogram(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~ topic, ncol = 3) +
+  labs(title = "Distribution of document probabilities for each topic",
+       subtitle = "Each topic is associated with 1 document",
+       y = "Number of documents", x = expression(gamma))
+```
+```{r}
+td_gamma %>% 
+  group_by(topic) %>% 
+  mutate(possbility = max(gamma))%>%
+  ungroup()%>%
+  filter(possbility == gamma) %>%
+  select(-c(gamma))
+```
+For topic 5 and 6, the possibility is lower than 0.25, which is quite unreliable topics to be assigned to the document, thus choosing less topics.
+
+### four topics
+```{r}
+topic_model <- stm(data_dfm, K = 4, 
+                   verbose = FALSE, init.type = "Spectral")
+td_beta <- tidy(topic_model)
+
+td_beta %>%
+    group_by(topic) %>%
+    top_n(10, beta) %>%
+    ungroup() %>%
+    mutate(topic = paste0("Topic ", topic),
+           term = reorder_within(term, beta, topic)) %>%
+    ggplot(aes(term, beta, fill = as.factor(topic))) +
+    geom_col(alpha = 0.8, show.legend = FALSE) +
+    facet_wrap(~ topic, scales = "free_y") +
+    coord_flip() +
+    scale_x_reordered() +
+    labs(x = NULL, y = expression(beta),
+         title = "Highest word probabilities for each topic",
+         subtitle = "Different words are associated with different topics")
+```
+
+```{r}
+td_gamma <- tidy(topic_model, matrix = "gamma",                    
+                 document_names = rownames(data_dfm))
+td_gamma %>% 
+  group_by(topic) %>% 
+  mutate(possbility = max(gamma))%>%
+  ungroup()%>%
+  filter(possbility == gamma) %>%
+  select(-c(gamma))
+```
